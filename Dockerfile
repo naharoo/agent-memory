@@ -32,4 +32,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # Same unprivileged user the engine image ships with.
 USER 65532
 
-ENTRYPOINT ["/usr/local/bin/node", "/app/docker/supervisor.mjs"]
+ENTRYPOINT ["/usr/local/bin/node", "/app/docker/entrypoint.mjs"]

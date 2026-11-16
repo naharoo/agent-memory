@@ -148,6 +148,11 @@ source for re-embedding after a model change.
 **Why one process serves the API and the viewer.** They share the engine client and the
 config; splitting them would only add a proxy hop and a second port.
 
+Engine quirks worth knowing before changing anything here — the vector index does not
+follow record writes, text and vector indexes sit behind different describe kinds, and
+`config.yml` is the source of truth at startup — are collected in
+[docs/engine-notes.md](docs/engine-notes.md).
+
 ## Building
 
 ```sh
