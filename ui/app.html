@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RushDB</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f14; --panel: #121820; --panel2: #1a2230; --line: #263041;
+    --text: #e6edf3; --muted: #8b97a8; --accent: #4c9aff; --ok: #3fb950; --bad: #f85149;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex: 0 0 auto;
+  }
+  header h1 { font-size: 13px; margin: 0; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: background .2s; }
+  header .dot.ok { background: var(--ok); } header .dot.bad { background: var(--bad); }
+  header .spacer { flex: 1; }
+  select, button, input, textarea {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 13px;
+  }
+  textarea { font-family: var(--mono); font-size: 12.5px; resize: vertical; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  main { flex: 1; display: flex; min-height: 0; }
+  aside {
+    width: 264px; flex: 0 0 auto; border-right: 1px solid var(--line);
+    background: var(--panel); overflow: auto; padding: 10px;
+  }
+  aside h2 { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 4px 4px 8px; }
+  .label {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 7px 9px; border-radius: 6px; cursor: pointer; font-family: var(--mono); font-size: 12.5px;
+  }
+  .label:hover { background: var(--panel2); }
+  .label.active { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+  .label .count { color: var(--muted); font-size: 11px; }
+  .idx { padding: 6px 9px; border-radius: 6px; }
+  .idx:hover { background: var(--panel2); }
+  .idx-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 12.5px; }
+  .idx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .idx-kind { flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .idx-kind.vector { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .idx-sub { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .idx-model { color: #7c8ba1; font-style: italic; }
+  .idx { cursor: pointer; }
+  .idx:hover .idx-name { color: var(--accent); }
+  .st-ready { color: var(--ok); }
+  .st-behind, .st-awaiting_vectors, .st-building { color: #d29922; }
+  .st-error, .st-failed { color: var(--bad); }
+  section { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+  .bar .title { font-family: var(--mono); font-size: 13px; }
+  .bar .muted { color: var(--muted); font-size: 12px; }
+  .bar .spacer { flex: 1; }
+  .tablewrap { flex: 1; overflow: auto; min-height: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--panel2); }
+  td { font-family: var(--mono); max-width: 460px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.dim { color: var(--muted); }
+  .empty { padding: 48px 16px; color: var(--muted); text-align: center; }
+  .drawer { border-top: 1px solid var(--line); background: var(--panel); flex: 0 0 auto; max-height: 40vh; display: none; flex-direction: column; }
+  .drawer.open { display: flex; }
+  .drawer .head { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .drawer .head .spacer { flex: 1; }
+  .drawer pre { margin: 0; padding: 12px 16px; overflow: auto; font-family: var(--mono); font-size: 12px; color: #c9d6e4; }
+  .sqlbar { border-top: 1px solid var(--line); background: var(--panel); padding: 10px 16px; flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
+  .sqlbar .row { display: flex; gap: 8px; align-items: center; }
+  .sqlbar textarea { flex: 1; min-height: 34px; }
+  .err { color: var(--bad); font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+  .pill { font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+  .ctl { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .ctl input { width: 64px; padding: 4px 6px; font-family: var(--mono); }
+  #updated { white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="dot"></span>
+  <h1>RushDB</h1>
+  <select id="tenant" title="Tenant"></select>
+  <span class="pill" id="engine"></span>
+  <span class="spacer"></span>
+  <label class="ctl" title="Auto-refresh interval in seconds; 0 turns it off">
+    auto
+    <input id="interval" type="number" min="0" max="3600" step="1" value="30" />
+    s
+  </label>
+  <span class="pill" id="updated"></span>
+  <button id="refresh">Refresh</button>
+</header>
+
+<main>
+  <aside>
+    <h2>Labels</h2>
+    <div id="labels"></div>
+    <h2 style="margin-top:18px">Indexes</h2>
+    <div id="indexes"></div>
+  </aside>
+
+  <section>
+    <div class="bar">
+      <span class="title" id="curLabel">—</span>
+      <span class="muted" id="curMeta"></span>
+      <span class="spacer"></span>
+      <button id="prev" disabled>Prev</button>
+      <button id="next" disabled>Next</button>
+    </div>
+    <div class="tablewrap" id="tablewrap">
+      <div class="empty">Pick a label on the left, or run SQL below.</div>
+    </div>
+
+    <div class="drawer" id="drawer">
+      <div class="head">
+        <span id="drawerTitle"></span>
+        <span class="spacer"></span>
+        <button id="closeDrawer">Close</button>
+      </div>
+      <pre id="drawerBody"></pre>
+    </div>
+
+    <div class="sqlbar">
+      <div class="row">
+        <textarea id="sql" placeholder="SELECT * FROM EPISODE LIMIT 20" spellcheck="false"></textarea>
+        <button id="runSql">Run</button>
+      </div>
+      <div class="err" id="sqlErr"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id)
+// Seeded from the URL so a refresh (or a shared link) keeps the tenant and label
+// you were looking at instead of snapping back to the first tenant in the list.
+const initial = new URLSearchParams(location.search)
+const state = {
+  tenant: initial.get("tenant") || "default",
+  label: initial.get("label") || null,
+  offset: 0,
+  limit: 50,
+  total: 0,
+  rows: [],
+}
+
+function syncUrl() {
+  const params = new URLSearchParams()
+  if (state.tenant) params.set("tenant", state.tenant)
+  if (state.label) params.set("label", state.label)
+  const qs = params.toString()
+  history.replaceState(null, "", location.pathname + (qs ? `?${qs}` : ""))
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts)
+  const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+  if (!res.ok || body.error) throw new Error(body.error || `HTTP ${res.status}`)
+  return body
+}
+
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))
+}
+
+function cell(v) {
+  if (v === null || v === undefined) return '<span class="dim">—</span>'
+  if (typeof v === "object") return esc(JSON.stringify(v))
+  return esc(v)
+}
+
+async function loadHealth() {
+  try {
+    const h = await api("/api/health")
+    $("dot").className = "dot " + (h.ok ? "ok" : "bad")
+    $("engine").textContent = h.engine || ""
+  } catch {
+    $("dot").className = "dot bad"
+  }
+}
+
+async function loadTenants() {
+  const { tenants, default: fallback } = await api("/api/tenants")
+  const sel = $("tenant")
+  sel.innerHTML = ""
+  for (const t of tenants) {
+    const opt = document.createElement("option")
+    opt.value = t.name
+    opt.textContent = t.name + (t.prefixes?.length ? "  ·  " + t.prefixes.join(", ") : "")
+    sel.appendChild(opt)
+  }
+  // A tenant from the URL that no longer exists (renamed, removed from tenants.tsv)
+  // must not leave the page querying a tenant the picker cannot represent.
+  const known = tenants.some((t) => t.name === state.tenant)
+  if (!known) state.tenant = tenants[0]?.name ?? fallback ?? "default"
+  sel.value = state.tenant
+  syncUrl()
+}
+
+async function loadSchema() {
+  const schema = await api(`/api/schema?tenant=${encodeURIComponent(state.tenant)}`)
+  const labels = schema.labels || []
+  const host = $("labels")
+  host.innerHTML = ""
+  if (!labels.length) {
+    host.innerHTML = '<div class="empty" style="padding:20px 6px">No labels yet.</div>'
+    return
+  }
+  for (const l of labels) {
+    const div = document.createElement("div")
+    div.className = "label" + (state.label === l.name ? " active" : "")
+    div.innerHTML = `<span>${esc(l.name)}</span><span class="count">${l.recordsCount ?? 0}</span>`
+    div.onclick = () => selectLabel(l.name)
+    host.appendChild(div)
+  }
+}
+
+async function loadIndexes() {
+  const host = $("indexes")
+  try {
+    const res = await api(`/api/indexes?tenant=${encodeURIComponent(state.tenant)}`)
+    const rows = res.indexes || []
+    if (!rows.length) {
+      host.innerHTML = '<div class="empty" style="padding:12px 6px">No indexes.</div>'
+      return
+    }
+    host.innerHTML = rows
+      .map((i) => {
+        const shape = [i.dimensions ? `${i.dimensions}d` : null, i.similarity].filter(Boolean).join(" · ")
+        const count = i.indexed != null && i.total != null ? `${i.indexed}/${i.total}` : ""
+        const status = String(i.status ?? "unknown")
+        const target = [i.label, i.property].filter(Boolean).join(".")
+        const facts = [shape, count].filter(Boolean).join(" · ")
+        const behind = i.unindexed ? ` · ${i.unindexed} unindexed` : ""
+        const stale = i.stale ? ` · ${i.stale} stale` : ""
+        return (
+          `<div class="idx" data-name="${esc(i.name)}">` +
+          `<div class="idx-top"><span class="idx-name">${esc(i.name)}</span><span class="idx-kind ${esc(i.kind)}">${esc(i.kind)}</span></div>` +
+          (target ? `<div class="idx-sub">${esc(target)}</div>` : "") +
+          `<div class="idx-sub"><span class="st-${esc(status)}">${esc(status)}</span>${facts ? " · " + esc(facts) : ""}${esc(behind)}${esc(stale)}</div>` +
+          (i.model ? `<div class="idx-sub idx-model">${esc(i.model)}</div>` : "") +
+          `</div>`
+        )
+      })
+      .join("")
+    host.querySelectorAll(".idx").forEach((el, n) => {
+      el.onclick = () => showDetails(`index · ${rows[n].name}`, rows[n].details ?? rows[n])
+    })
+    if (res.errors?.length) {
+      host.innerHTML += `<div class="err" style="padding:6px 9px">${esc(res.errors.join("; "))}</div>`
+    }
+  } catch (e) {
+    host.innerHTML = `<div class="empty err" style="padding:12px 6px">${esc(e.message)}</div>`
+  }
+}
+
+async function selectLabel(name) {
+  state.label = name
+  state.offset = 0
+  syncUrl()
+  await loadSchema()
+  await loadRecords()
+}
+
+async function loadRecords({ silent = false } = {}) {
+  const wrap = $("tablewrap")
+  // Auto-refresh re-renders the whole table, which resets both scroll axes. Capture
+  // them before the DOM is replaced and put them back after, so a poll while you are
+  // reading the right-hand columns does not jump you back to column one.
+  const prevTop = wrap.scrollTop
+  const prevLeft = wrap.scrollLeft
+  if (!state.label) {
+    wrap.innerHTML = '<div class="empty">Pick a label on the left, or run SQL below.</div>'
+    $("curLabel").textContent = "—"
+    $("curMeta").textContent = ""
+    $("prev").disabled = true
+    $("next").disabled = true
+    return
+  }
+  // A poll should not flash a placeholder over a table you are already reading.
+  if (!silent) wrap.innerHTML = '<div class="empty">Loading…</div>'
+  try {
+    const q = new URLSearchParams({ tenant: state.tenant, label: state.label, limit: state.limit, offset: state.offset })
+    const res = await api(`/api/records?${q}`)
+    const rows = res.records || []
+    state.rows = rows
+    $("curLabel").textContent = state.label
+    $("curMeta").textContent = `offset ${state.offset} · ${rows.length} shown`
+    $("prev").disabled = state.offset === 0
+    $("next").disabled = rows.length < state.limit
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="empty">No records.</div>'
+      return
+    }
+    const cols = ["id"]
+    for (const r of rows.slice(0, 20)) {
+      for (const k of Object.keys(r.properties || {})) if (!cols.includes(k)) cols.push(k)
+    }
+    const head = cols.map((c) => `<th>${esc(c)}</th>`).join("")
+    const body = rows
+      .map((r, i) => {
+        const tds = cols
+          .map((c) => (c === "id" ? `<td class="dim">${esc(r.id)}</td>` : `<td>${cell(r.properties?.[c])}</td>`))
+          .join("")
+        return `<tr data-i="${i}">${tds}</tr>`
+      })
+      .join("")
+    wrap.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+    wrap.querySelectorAll("tbody tr").forEach((tr) => {
+      tr.onclick = () => showRecord(rows[Number(tr.dataset.i)])
+    })
+    wrap.scrollTop = prevTop
+    wrap.scrollLeft = prevLeft
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty err">${esc(e.message)}</div>`
+  }
+}
+
+function showDetails(title, value) {
+  $("drawer").classList.add("open")
+  $("drawerTitle").textContent = title
+  $("drawerBody").textContent = JSON.stringify(value, null, 2)
+}
+
+function showRecord(record) {
+  showDetails(`${record.label} · ${record.id}`, record)
+}
+
+async function runSql() {
+  const sql = $("sql").value.trim()
+  if (!sql) return
+  $("sqlErr").textContent = ""
+  const wrap = $("tablewrap")
+  wrap.innerHTML = '<div class="empty">Running…</div>'
+  try {
+    const res = await api("/api/sql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant: state.tenant, sql }),
+    })
+    const rows = res.rows || []
+    state.label = null
+    $("curLabel").textContent = "SQL"
+    $("curMeta").textContent = `${rows.length} rows`
+    $("prev").disabled = true
+    $("next").disabled = true
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="empty">No rows.</div>'
+      return
+    }
+    const cols = Object.keys(rows[0])
+    const head = cols.map((c) => `<th>${esc(c)}</th>`).join("")
+    const body = rows
+      .map((r) => `<tr>${cols.map((c) => `<td>${cell(r[c])}</td>`).join("")}</tr>`)
+      .join("")
+    wrap.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+  } catch (e) {
+    $("sqlErr").textContent = e.message
+    wrap.innerHTML = '<div class="empty">SQL failed.</div>'
+  }
+}
+
+const REFRESH_KEY = "rushdb-ui.refreshSeconds"
+const DEFAULT_REFRESH_SECONDS = 30
+const MAX_REFRESH_SECONDS = 3600
+
+let timer = null
+let inFlight = false
+
+function setUpdated(ok = true) {
+  const time = new Date().toLocaleTimeString([], { hour12: false })
+  $("updated").textContent = (ok ? "updated " : "refresh failed ") + time
+}
+
+function readInterval() {
+  const n = Number($("interval").value)
+  if (!Number.isFinite(n)) return DEFAULT_REFRESH_SECONDS
+  return Math.max(0, Math.min(Math.round(n), MAX_REFRESH_SECONDS))
+}
+
+function saveInterval(seconds) {
+  try { localStorage.setItem(REFRESH_KEY, String(seconds)) } catch {}
+}
+
+function schedule() {
+  if (timer) { clearInterval(timer); timer = null }
+  const seconds = readInterval()
+  if (seconds <= 0) return
+  timer = setInterval(() => refresh({ manual: false }), seconds * 1000)
+}
+
+// Health and schema always refresh; records only when a label is being viewed,
+// so an open SQL result set is never wiped by the timer.
+async function refresh({ manual = false } = {}) {
+  if (inFlight) return
+  inFlight = true
+  const btn = $("refresh")
+  btn.disabled = true
+  let ok = true
+  try {
+    await loadHealth()
+    try {
+      await loadSchema()
+    } catch (e) {
+      ok = false
+      console.error(e)
+    }
+    // Index state is informational; a failure here must not blank the label list.
+    await loadIndexes()
+    if (state.label) await loadRecords({ silent: true })
+  } finally {
+    inFlight = false
+    btn.disabled = false
+    setUpdated(ok)
+    if (manual) schedule()
+  }
+}
+
+$("tenant").onchange = async (e) => {
+  state.tenant = e.target.value
+  state.label = null
+  state.offset = 0
+  syncUrl()
+  await refresh({ manual: true })
+  await loadRecords()
+}
+$("interval").onchange = () => {
+  saveInterval(readInterval())
+  schedule()
+}
+$("refresh").onclick = () => refresh({ manual: true })
+$("prev").onclick = () => {
+  state.offset = Math.max(0, state.offset - state.limit)
+  loadRecords()
+}
+$("next").onclick = () => {
+  state.offset += state.limit
+  loadRecords()
+}
+$("runSql").onclick = runSql
+$("sql").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runSql()
+})
+$("closeDrawer").onclick = () => $("drawer").classList.remove("open")
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    refresh({ manual: false })
+    schedule()
+  } else if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+})
+
+;(async () => {
+  let seconds = DEFAULT_REFRESH_SECONDS
+  let hasSaved = false
+  try {
+    const saved = localStorage.getItem(REFRESH_KEY)
+    if (saved !== null) { seconds = Number(saved); hasSaved = true }
+  } catch {}
+  if (!hasSaved) {
+    try {
+      const cfg = await api("/api/config")
+      if (Number.isFinite(cfg?.refreshSeconds)) seconds = cfg.refreshSeconds
+    } catch {}
+  }
+  seconds = Number.isFinite(seconds)
+    ? Math.max(0, Math.min(Math.round(seconds), MAX_REFRESH_SECONDS))
+    : DEFAULT_REFRESH_SECONDS
+  $("interval").value = String(seconds)
+
+  await loadHealth()
+  try { await loadTenants() } catch (e) { console.error(e) }
+  try { await loadSchema() } catch (e) { console.error(e) }
+  await loadIndexes()
+  if (state.label) await loadRecords()
+  setUpdated()
+  schedule()
+})()
+</script>
+</body>
+</html>

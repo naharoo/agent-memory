@@ -1,0 +1,30 @@
+# Same container as the README's docker run, in compose form.
+#
+#   docker compose up -d
+#
+# The volume is the whole state of the system: engine data, tenant map, logs.
+services:
+  agent-memory:
+    image: ghcr.io/naharoo/agent-memory:latest
+    container_name: agent-memory
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - "${HOME}/agent-memory:/data"
+    environment:
+      # Optional: enables semantic recall. Without it, recall is keyword-only.
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      # AGENT_MEMORY_EMBEDDING_MODEL: mongodb/voyage-4-lite
+      # AGENT_MEMORY_EMBEDDING_DIMENSIONS: "1024"
+      # AGENT_MEMORY_KEY: ""            # optional bearer key if published beyond loopback
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/node
+        - -e
+        - "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s

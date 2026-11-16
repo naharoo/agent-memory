@@ -1,0 +1,29 @@
+#!/bin/sh
+# RushDB MCP server, pointed at the agent-memory container.
+#
+# The container re-exposes the engine protocol on its own port, so this needs no
+# token and no local config: the tenant is resolved by the service from $PWD, which
+# keeps the directory->tenant mapping in one place (inside the container) instead of
+# duplicating it on every agent host.
+set -e
+
+# A GUI-launched agent has a minimal PATH; node/npx live under nvm here.
+for d in "$HOME"/.nvm/versions/node/*/bin; do
+  [ -d "$d" ] && PATH="$d:$PATH"
+done
+PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH
+
+SERVICE="${AGENT_MEMORY_URL:-http://127.0.0.1:3001}"
+
+scope=$(curl -fsS --max-time 3 -H "X-Directory: $PWD" "$SERVICE/api/tenant-for" 2>/dev/null \
+  | sed -n 's/.*"tenant":"\([^"]*\)".*/\1/p')
+[ -n "$scope" ] || scope=default
+
+export RUSHDB_MODE=direct
+export RUSHDB_ENGINE_URL="$SERVICE"
+# The service ignores this value; the engine token never leaves the container.
+export RUSHDB_ENGINE_TOKEN="local"
+export RUSHDB_ENGINE_SCOPE="$scope"
+
+exec npx -y @rushdb/mcp-server

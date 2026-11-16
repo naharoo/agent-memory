@@ -1,0 +1,15 @@
+{
+  "name": "agent-memory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted agent memory: RushDB engine, HTTP memory API, and a viewer in one container",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/service.mjs",
+    "dev": "AGENT_MEMORY_DATA_DIR=./.data AGENT_MEMORY_HOST=127.0.0.1 node src/service.mjs",
+    "docker:build": "docker build -t agent-memory:local .",
+    "docker:run": "docker run --rm -it -p 127.0.0.1:3001:3001 -v \"$PWD/.data:/data\" agent-memory:local"
+  }
+}
