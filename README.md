@@ -114,8 +114,15 @@ One bind mount holds everything. Back it up by stopping the container and copyin
 directory — do not copy a live `*.redb`.
 
 `config/tenants.tsv` maps directory prefixes to tenants; longest prefix wins, everything
-else uses the default tenant. `config/index-info.json` supplies the embedding model label
-the viewer shows, since the engine cannot report it (vectors are supplied by a client).
+else uses the default tenant. Edits are picked up on the next request — no restart — so
+adding a project is just one line:
+
+```
+/Users/you/Projects/acme/	acme
+```
+
+`config/index-info.json` supplies the embedding model label the viewer shows, since the
+engine cannot report it (vectors are supplied by a client).
 
 ## Migrating from a bare RushDB setup
 

@@ -5,7 +5,7 @@
  * The only value anyone has to supply is OPENROUTER_API_KEY, and only if they want
  * semantic recall rather than keyword ranking.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
 export const DATA_DIR = process.env.AGENT_MEMORY_DATA_DIR ?? "/data"
@@ -49,13 +49,21 @@ export async function ensureLayout() {
 }
 
 let tenantRules
+let tenantStamp
 
 /**
  * Directory -> tenant. The agent sends the directory it is running in; the mapping
  * lives here rather than on the agent host, so every adapter gets the same answer.
+ *
+ * Re-read when the file changes (mtime + size), so adding a project does not require
+ * restarting the container. The file is tiny; the stat is the only steady-state cost.
  */
 export async function tenantRulesList() {
-  if (tenantRules) return tenantRules
+  const stamp = await stat(TENANTS_FILE)
+    .then((s) => `${s.mtimeMs}:${s.size}`)
+    .catch(() => "missing")
+  if (tenantRules && tenantStamp === stamp) return tenantRules
+
   const rules = []
   try {
     const text = await readFile(TENANTS_FILE, "utf8")
@@ -70,11 +78,13 @@ export async function tenantRulesList() {
     }
   } catch {}
   tenantRules = rules
+  tenantStamp = stamp
   return rules
 }
 
 export function invalidateTenants() {
   tenantRules = undefined
+  tenantStamp = undefined
 }
 
 export async function tenantFor(directory) {
