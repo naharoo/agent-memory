@@ -34,10 +34,15 @@ docker run --rm -v ~/.config/opencode:/host \
   ghcr.io/naharoo/agent-memory:latest install-opencode
 ```
 
-That copies the plugin into `~/.config/opencode/plugins/agent-memory/` and appends a
-managed block to `AGENTS.md`. Then restart or `/reload` the agent. There is nothing to
-install — the adapter is a single file, and the agent provides `@opencode/plugin` at
-runtime.
+That copies the plugin into `~/.config/opencode/plugins/agent-memory/`, installs the MCP
+wrapper at `~/.config/opencode/bin/rushdb-mcp`, and appends a managed block to
+`AGENTS.md`. Then restart or `/reload` the agent. There is nothing to install — the
+adapter is a single file, and the agent provides `@opencode/plugin` at runtime.
+
+The wrapper is copied from the image rather than kept in the repo, so the host never
+holds a copy that can drift from the one the image was built and tested with. The
+installer reports whether your MCP config already points at it; it does not rewrite
+`opencode.jsonc` for you.
 
 ## What you get
 
@@ -65,7 +70,8 @@ label are kept in the URL, so a refresh lands where you left off.
 ### MCP
 
 `mcp/rushdb-mcp` is a stdio MCP wrapper over `POST /engine`. It resolves the tenant from
-`$PWD` through `/api/tenant-for`, so it needs no token and no local config:
+`$PWD` through `/api/tenant-for`, so it needs no token and no local config. The installer
+places it at `~/.config/opencode/bin/rushdb-mcp`; point your MCP config there:
 
 ```jsonc
 {

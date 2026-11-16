@@ -15,6 +15,7 @@ COPY package.json /app/package.json
 COPY src /app/src
 COPY ui /app/ui
 COPY adapters /app/adapters
+COPY mcp /app/mcp
 COPY docker /app/docker
 
 ENV AGENT_MEMORY_DATA_DIR=/data \
