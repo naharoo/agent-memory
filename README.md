@@ -35,8 +35,9 @@ docker run --rm -v ~/.config/opencode:/host \
 ```
 
 That copies the plugin into `~/.config/opencode/plugins/agent-memory/` and appends a
-managed block to `AGENTS.md`. Run `npm install --omit=dev` in that directory once, then
-restart or `/reload` the agent.
+managed block to `AGENTS.md`. Then restart or `/reload` the agent. There is nothing to
+install — the adapter is a single file, and the agent provides `@opencode/plugin` at
+runtime.
 
 ## What you get
 

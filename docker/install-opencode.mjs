@@ -41,10 +41,10 @@ async function install() {
   console.log(`agents  -> ${AGENTS} (managed block updated)`)
   console.log("")
   console.log("Next:")
-  console.log("  1. install the plugin's single dependency:")
-  console.log(`     cd ${PLUGIN_DIR} && npm install --omit=dev`)
-  console.log("  2. restart or /reload OpenCode")
-  console.log("  3. optional MCP: add mcp/rushdb-mcp to your agent's MCP config")
+  console.log("  1. restart or /reload OpenCode")
+  console.log("  2. optional MCP: add mcp/rushdb-mcp to your agent's MCP config")
+  console.log("")
+  console.log("No dependencies to install: the agent provides @opencode/plugin at runtime.")
 }
 
 async function uninstall() {
